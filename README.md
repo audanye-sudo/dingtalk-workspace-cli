@@ -332,7 +332,7 @@ dws chat message send-by-bot --robot-code BOT_CODE --group GROUP_ID \
 | Service | Command | Tools | Subcommands | Description |
 |---------|---------|:-----:|-------------|-------------|
 | Contact | `contact` | 8 | `user` `dept` | Search users by name/mobile, batch query, departments, current user profile |
-| Chat | `chat` | 14 | `message` `group` `bot` `search` | Group CRUD, member management, message history, topic replies, send as user |
+| Chat | `chat` | 14 | `message` `group` `bot` `search` | Group CRUD, member management, topic replies, send as user |
 | Bot | `chat bot` | 9 | — | Robot creation, group/single messaging, webhook, message recall |
 | Calendar | `calendar` | 13 | `event` `room` `participant` `busy` | Events CRUD, meeting room booking, free-busy query, participant management |
 | Todo | `todo` | 6 | `task` | Create, list, update, done, get detail, delete |

@@ -332,7 +332,7 @@ dws chat message send-by-bot --robot-code BOT_CODE --group GROUP_ID \
 | 服务 | 命令 | 工具数 | 子命令 | 描述 |
 |------|------|:------:|--------|------|
 | 通讯录 | `contact` | 8 | `user` `dept` | 按姓名/手机号搜索、批量查询、部门树、当前用户信息 |
-| 群聊 | `chat` | 14 | `message` `group` `bot` `search` | 群增删改查、成员管理、消息拉取、话题回复、以用户身份发消息 |
+| 群聊 | `chat` | 14 | `message` `group` `bot` `search` | 群增删改查、成员管理、话题回复、以用户身份发消息 |
 | 机器人 | `chat bot` | 9 | — | 机器人创建、群聊/单聊消息、Webhook、消息撤回 |
 | 日历 | `calendar` | 13 | `event` `room` `participant` `busy` | 日程增删改查、会议室预订、闲忙查询、参与者管理 |
 | 待办 | `todo` | 6 | `task` | 创建、列表、修改、完成、详情、删除 |
