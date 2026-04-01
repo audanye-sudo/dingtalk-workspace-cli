@@ -126,6 +126,12 @@ func (r *runtimeRunner) Run(ctx context.Context, invocation executor.Invocation)
 }
 
 func (r *runtimeRunner) executeInvocation(ctx context.Context, endpoint string, invocation executor.Invocation) (executor.Result, error) {
+	// Lazy bind FileLogger: it may be nil at construction time because
+	// configureLogLevel runs later in PersistentPreRunE.
+	if r.transport.FileLogger == nil {
+		r.transport.FileLogger = FileLoggerInstance()
+	}
+
 	authStart := time.Now()
 	tc := r.transport.WithAuth(r.resolveAuthToken(ctx), resolveIdentityHeaders())
 	if os.Getenv("DWS_PERF_DEBUG") != "" {
@@ -178,6 +184,7 @@ func (r *runtimeRunner) executeInvocation(ctx context.Context, endpoint string, 
 
 	if callResult.IsError {
 		diag := transport.ExtractServerDiagnosticsFromMap(callResult.Content)
+		logBusinessError(r.transport.FileLogger, "mcp_tool_error", invocation, callResult.Content, diag)
 		mcpErr := apperrors.NewAPI(
 			extractMCPErrorMessage(callResult),
 			apperrors.WithOperation("tools/call"),
@@ -197,6 +204,7 @@ func (r *runtimeRunner) executeInvocation(ctx context.Context, endpoint string, 
 
 	if bizErr := detectBusinessError(callResult.Content); bizErr != "" {
 		diag := transport.ExtractServerDiagnosticsFromMap(callResult.Content)
+		logBusinessError(r.transport.FileLogger, "business_error", invocation, callResult.Content, diag)
 		return executor.Result{}, apperrors.NewAPI(bizErr,
 			apperrors.WithOperation("tools/call"),
 			apperrors.WithReason("business_error"),
@@ -258,7 +266,7 @@ func getCachedRuntimeToken(ctx context.Context) string {
 			cachedRuntimeToken = strings.TrimSpace(token)
 			return
 		}
-		// If the error is a decryption failure (corrupted data), record it
+		// If the error is a decryption failure (corrupted data), log and bail out
 		if tokenErr != nil && errors.Is(tokenErr, authpkg.ErrTokenDecryption) {
 			slog.Error(tokenErr.Error())
 			return
@@ -395,4 +403,37 @@ func extractMCPErrorMessage(result transport.ToolCallResult) string {
 		return strings.TrimSpace(msg)
 	}
 	return "MCP tool returned an error response"
+}
+
+// logBusinessError logs MCP tool errors and business errors to the file logger
+// so they can be diagnosed offline. These errors arrive as HTTP 200 responses
+// and would otherwise not be captured by transport-level logging.
+func logBusinessError(logger *slog.Logger, reason string, inv executor.Invocation, content map[string]any, diag apperrors.ServerDiagnostics) {
+	if logger == nil {
+		return
+	}
+	attrs := []any{
+		"product", inv.CanonicalProduct,
+		"tool", inv.Tool,
+		"reason", reason,
+	}
+	if diag.TraceID != "" {
+		attrs = append(attrs, "trace_id", diag.TraceID)
+	}
+	if diag.ServerErrorCode != "" {
+		attrs = append(attrs, "server_error_code", diag.ServerErrorCode)
+	}
+	if diag.TechnicalDetail != "" {
+		attrs = append(attrs, "technical_detail", diag.TechnicalDetail)
+	}
+	if msg, ok := content["error"].(string); ok {
+		attrs = append(attrs, "error", msg)
+	}
+	if msg, ok := content["errorMsg"].(string); ok {
+		attrs = append(attrs, "errorMsg", msg)
+	}
+	if msg, ok := content["message"].(string); ok {
+		attrs = append(attrs, "message", msg)
+	}
+	logger.Warn("business_error", attrs...)
 }
