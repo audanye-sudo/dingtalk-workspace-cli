@@ -19,7 +19,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Co-creation Phase**: This project accesses DingTalk enterprise data and requires enterprise admin authorization. Please join the DingTalk DWS co-creation group to complete whitelist configuration. See [Getting Started](#getting-started) below.
+> **Co-creation Phase**: This project accesses DingTalk enterprise data and requires enterprise admin authorization. Join the DingTalk DWS co-creation group for support and updates. See [Getting Started](#getting-started) below.
 >
 > <a href="https://qr.dingtalk.com/action/joingroup?code=v1,k1,v9/YMJG9qXhvFk5juktYnQziN70rF7QHebC/JLztTVRuRVJIwrSsXmL8oFqU5ajJ&_dt_no_comment=1&origin=11"><img src="https://img.alicdn.com/imgextra/i4/O1CN01Rijgk81gKqVSKMzdx_!!6000000004124-2-tps-654-644.png" alt="DingTalk Group QR Code" width="150"></a>
 
@@ -87,18 +87,114 @@ cp dws ~/.local/bin/         # install to PATH
 
 ## Getting Started
 
-### Step 1: Create a DingTalk Application
+dws supports two authentication modes. Choose the one that fits your needs:
+
+| Mode | Best For | Setup Effort | Requires |
+|------|----------|:------------:|----------|
+| **Official App** (recommended) | Quick start, daily work, AI Agent integration | Low | Admin enables CLI access |
+| **Custom App** | Enterprise-managed, CI/CD, ISV integration | Medium | Enterprise developer access, admin enables CLI access, create DingTalk app |
+
+---
+
+### Mode A: Official App (Recommended)
+
+No app creation needed — authenticate directly using the built-in official application.
+
+#### Step 1: Login
+
+```bash
+dws auth login
+```
+
+The terminal will display a login URL and automatically open your browser for authorization.
+
+#### Step 2: Select Organization & Authorize
+
+After login, the system guides you based on your organization's configuration:
+
+**Case A: Organization has CLI access enabled**
+
+| Step | Action |
+|------|--------|
+| 1 | Select your organization on the web page |
+| 2 | Complete authorization — page shows "Authorization Successful" |
+| 3 | Return to terminal and start using CLI |
+
+<p align="center">
+  <img src="https://img.alicdn.com/imgextra/i2/O1CN01c6blXk28YrsF8rqDt_!!6000000007945-2-tps-2244-762.png" alt="Authorization Successful" width="600">
+</p>
+
+> Organization CLI access is controlled by the primary admin under "Developer Platform → CLI Access Management".
+
+**Case B: Organization has NOT enabled CLI access**
+
+| Step | Action |
+|------|--------|
+| 1 | After selecting your organization, page shows "This organization has not enabled CLI data access" |
+| 2 | Select the primary admin and click "Apply Now" |
+| 3 | An application notification is sent to the admin on your behalf |
+| 4 | Wait for admin approval |
+| 5 | If approved quickly, the authorization status refreshes automatically; if it times out, re-run `dws auth login` |
+
+<p align="center">
+  <img src="https://img.alicdn.com/imgextra/i2/O1CN01wtsYuQ1CTbboVTlsD_!!6000000000082-2-tps-2696-1544.png" alt="Apply for Access" width="600">
+</p>
+
+<p align="center">
+  <img src="https://img.alicdn.com/imgextra/i2/O1CN01relTVr1R5zQIIXv18_!!6000000002061-2-tps-2386-1472.png" alt="Application Sent" width="600">
+</p>
+
+<details>
+<summary><strong>Admin Guide: Enable CLI Access</strong></summary>
+
+Primary admins manage CLI access under "Developer Platform → CLI Access Management":
+
+1. Go to [Developer Platform](https://open-dev.dingtalk.com)
+2. Navigate to "CLI Access Management"
+3. Enable "Allow members to access personal data via CLI"
+
+<p align="center">
+  <img src="https://img.alicdn.com/imgextra/i2/O1CN01xw9BrB20UjN13KGER_!!6000000006853-2-tps-2940-1596.png" alt="CLI Access Management - Before" width="600">
+</p>
+
+<p align="center">
+  <img src="https://img.alicdn.com/imgextra/i4/O1CN01M8K7Wj1rZ0WikrZby_!!6000000005644-2-tps-2940-1596.png" alt="CLI Access Management - After" width="600">
+</p>
+
+> This permission only controls CLI tool access and does not affect members' normal usage within the DingTalk client.
+
+**Handling member requests**
+
+When a member applies for CLI access, the admin receives a request card:
+
+- Click "View Details" → navigate to management interface
+- Click "Enable..." → approve directly
+
+<p align="center">
+  <img src="https://img.alicdn.com/imgextra/i3/O1CN01cC7LfT1uC3WgURHQ3_!!6000000006000-2-tps-1316-524.png" alt="Request Card" width="600">
+</p>
+
+</details>
+
+---
+
+### Mode B: Custom App
+
+Create your own DingTalk application for enterprise-managed access control.
+
+<details>
+<summary><strong>Step 1: Create a DingTalk Application</strong></summary>
 
 Go to the [Open Platform Console](https://open-dev.dingtalk.com/fe/app?hash=%23%2Fcorp%2Fapp#/corp/app). Under "Internal Enterprise Apps - DingTalk Apps", click **Create App**.
 
-<details>
-<summary>View screenshot</summary>
 <p align="center">
   <img src="https://img.alicdn.com/imgextra/i4/O1CN01VIkwvV1a5NQzCIFO0_!!6000000003278-2-tps-2690-1462.png" alt="Create Application" width="600">
 </p>
+
 </details>
 
-### Step 2: Configure Redirect URL
+<details>
+<summary><strong>Step 2: Configure Redirect URL</strong></summary>
 
 Go to app settings → **Security Settings**. Add the following redirect URLs and save:
 
@@ -108,29 +204,25 @@ http://127.0.0.1,https://login.dingtalk.com
 
 > `http://127.0.0.1` is for local browser login; `https://login.dingtalk.com` is for `--device` device-flow login (Docker containers, remote servers, and other headless environments). We recommend configuring both.
 
-<details>
-<summary>View screenshot</summary>
 <p align="center">
   <img src="https://img.alicdn.com/imgextra/i4/O1CN017xQGWb1ycrAG0uxBO_!!6000000006600-2-tps-2000-1032.png" alt="Configure Redirect URL" width="600">
 </p>
+
 </details>
 
-### Step 3: Publish the Application
+<details>
+<summary><strong>Step 3: Publish the Application</strong></summary>
 
 Click "App Release - Version Management & Release" to publish and go live.
 
-<details>
-<summary>View screenshot</summary>
 <p align="center">
   <img src="https://img.alicdn.com/imgextra/i4/O1CN01WOLZFz244P46B3FPu_!!6000000007337-2-tps-2000-1100.png" alt="Publish Application" width="600">
 </p>
+
 </details>
 
-### Step 4: Request Whitelist Access
-
-Join the DingTalk DWS co-creation group and provide your **Client ID** and **admin confirmation** to complete whitelist setup.
-
-### Step 5: Authenticate
+<details>
+<summary><strong>Step 4: Authenticate</strong></summary>
 
 ```bash
 dws auth login --client-id <your-app-key> --client-secret <your-app-secret>
@@ -143,6 +235,8 @@ export DWS_CLIENT_ID=<your-app-key>
 export DWS_CLIENT_SECRET=<your-app-secret>
 dws auth login
 ```
+
+</details>
 
 <details>
 <summary><strong>Credential Configuration Priority</strong></summary>
@@ -176,7 +270,10 @@ dws todo task list --dry-run                       # preview without executing
 dws is designed as an AI-native CLI. Complete [Installation](#installation) and [Getting Started](#getting-started) first, then configure your agent:
 
 ```bash
-# Configure auth via environment variables (recommended for agents, no interactive login)
+# Official App mode: login directly (recommended)
+dws auth login
+
+# Custom App mode: configure auth via environment variables
 export DWS_CLIENT_ID=<your-app-key>
 export DWS_CLIENT_SECRET=<your-app-secret>
 dws auth login
@@ -334,22 +431,22 @@ dws chat message send-by-bot --robot-code BOT_CODE --group GROUP_ID \
 
 ## Key Services
 
-| Service | Command | Tools | Subcommands | Description |
-|---------|---------|:-----:|-------------|-------------|
-| Contact | `contact` | 8 | `user` `dept` | Search users by name/mobile, batch query, departments, current user profile |
-| Chat | `chat` | 14 | `message` `group` `bot` `search` | Group CRUD, member management, topic replies, send as user |
-| Bot | `chat bot` | 9 | — | Robot creation, group/single messaging, webhook, message recall |
+| Service | Command | Commands | Subcommands | Description |
+|---------|---------|:--------:|-------------|-------------|
+| Contact | `contact` | 6 | `user` `dept` | Search users by name/mobile, batch query, departments, current user profile |
+| Chat | `chat` | 10 | `message` `group` `search` | Group CRUD, member management, bot messaging, webhook |
+| Bot | `chat bot` | 6 | `bot` `group` `message` `search` | Robot creation/search, group/single messaging, webhook, message recall |
 | Calendar | `calendar` | 13 | `event` `room` `participant` `busy` | Events CRUD, meeting room booking, free-busy query, participant management |
 | Todo | `todo` | 6 | `task` | Create, list, update, done, get detail, delete |
 | Approval | `oa` | 9 | `approval` | Approve/reject/revoke, pending tasks, initiated instances, process list |
 | Attendance | `attendance` | 4 | `record` `shift` `summary` `rules` | Clock-in records, shift schedules, attendance summary, group rules |
-| Ding | `ding` | 3 | `message` | Send/recall DING messages |
+| Ding | `ding` | 2 | `message` | Send/recall DING messages |
 | Report | `report` | 7 | `create` `list` `detail` `template` `stats` `sent` | Create reports, sent/received list, templates, statistics |
-| AITable | `aitable` | 27 | `base` `table` `record` `field` `attachment` `template` | Full CRUD for bases/tables/records/fields, views, import/export, templates |
+| AITable | `aitable` | 20 | `base` `table` `record` `field` `attachment` `template` | Full CRUD for bases/tables/records/fields, templates |
 | Workbench | `workbench` | 2 | `app` | Batch query app details |
-| DevDoc | `devdoc` | 2 | `article` | Search platform docs and error codes |
+| DevDoc | `devdoc` | 1 | `article` | Search platform docs and error codes |
 
-> 104 tools across 12 products. Run `dws --help` for the full list, or `dws <service> --help` for subcommands.
+> 86 commands across 12 products. Run `dws --help` for the full list, or `dws <service> --help` for subcommands.
 
 <details>
 <summary>Coming soon</summary>
