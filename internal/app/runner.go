@@ -106,7 +106,10 @@ func (r *runtimeRunner) Run(ctx context.Context, invocation executor.Invocation)
 	catalog, err := r.loader.Load(ctx)
 	RecordTiming(ctx, "catalog_load", time.Since(catalogStart))
 	if err != nil {
-		return executor.Result{}, err
+		var degraded *cli.CatalogDegraded
+		if !errors.As(err, &degraded) {
+			return executor.Result{}, err
+		}
 	}
 
 	product, ok := catalog.FindProduct(invocation.CanonicalProduct)
@@ -226,6 +229,12 @@ func (r *runtimeRunner) executeInvocation(ctx context.Context, endpoint string, 
 		}
 		captureRuntimeFailure(invocation, err, err)
 		return executor.Result{}, err
+	}
+
+	if fn := edition.Get().ClassifyToolResult; fn != nil {
+		if editionErr := fn(callResult.Content); editionErr != nil {
+			return executor.Result{}, editionErr
+		}
 	}
 
 	if callResult.IsError {
