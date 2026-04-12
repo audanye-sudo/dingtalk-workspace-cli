@@ -21,7 +21,18 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/DingTalk-Real-AI/dingtalk-workspace-cli/pkg/configmeta"
 )
+
+func init() {
+	configmeta.Register(configmeta.ConfigItem{
+		Name:        "DWS_PERF_DEBUG",
+		Category:    configmeta.CategoryDebug,
+		Description: "启用性能计时输出到 stderr",
+		Example:     "1",
+	})
+}
 
 // PerfDebugEnv is the environment variable to enable performance timing output.
 const PerfDebugEnv = "DWS_PERF_DEBUG"

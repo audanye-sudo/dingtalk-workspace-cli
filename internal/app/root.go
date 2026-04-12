@@ -274,6 +274,7 @@ func NewRootCommandWithEngine(rootCtx context.Context, engine *pipeline.Engine) 
 		newAuthCommand(),
 		newSkillCommand(),
 		newCacheCommand(),
+		newConfigCommand(),
 		newCompletionCommand(root),
 		newRecoveryCommand(rootCtx, loader, flags),
 		newUpgradeCommand(),
@@ -629,6 +630,7 @@ func hideNonDirectRuntimeCommands(root *cobra.Command) {
 	staticCommands := map[string]bool{
 		"auth":       true,
 		"cache":      true,
+		"config":     true,
 		"completion": true,
 		"skill":      true,
 		"version":    true,
