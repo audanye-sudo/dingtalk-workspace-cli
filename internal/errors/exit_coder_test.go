@@ -8,8 +8,8 @@ import (
 
 type stubExitCoder struct{ code int }
 
-func (s *stubExitCoder) Error() string   { return "stub" }
-func (s *stubExitCoder) ExitCode() int   { return s.code }
+func (s *stubExitCoder) Error() string { return "stub" }
+func (s *stubExitCoder) ExitCode() int { return s.code }
 
 type stubRawStderr struct{ raw string }
 
