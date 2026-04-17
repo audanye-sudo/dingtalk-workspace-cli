@@ -1193,9 +1193,14 @@ func loadPlugins(engine *pipeline.Engine, runner executor.Runner) []*cobra.Comma
 func registerHTTPServer(p *plugin.Plugin, srv market.ServerDescriptor, tc *transport.Client, runner executor.Runner) []*cobra.Command {
 	// Use a longer timeout for servers with custom auth headers (third-party
 	// services may have higher latency than local/DingTalk endpoints).
+	// Bounded tightly so an unreachable plugin cannot stall every CLI
+	// command: combined with DialContext.Timeout=3s plus Initialize's
+	// short-circuit on transport errors, 4s still accommodates a healthy
+	// third-party endpoint (typically <2s) while surrendering quickly on
+	// broken ones. See issue #119.
 	timeout := 2 * time.Second
 	if len(srv.AuthHeaders) > 0 {
-		timeout = 10 * time.Second
+		timeout = 4 * time.Second
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -1342,7 +1347,10 @@ func registerPluginAuthFromHeaders(srv market.ServerDescriptor) {
 // via ListTools, builds CLI commands, and registers the StdioClient for
 // runtime dispatch. Returns generated cobra commands.
 func registerStdioServer(p *plugin.Plugin, sc plugin.StdioServerClient, runner executor.Runner) []*cobra.Command {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Bounded startup window for stdio plugins. A healthy MCP subprocess
+	// initialises well under a second; capping at 4s keeps a misbehaving
+	// plugin from blocking every CLI command. See issue #119.
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
 
 	if _, err := sc.Client.Initialize(ctx); err != nil {

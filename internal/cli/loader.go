@@ -107,7 +107,9 @@ const (
 	DefaultMarketBaseURL = "https://mcp.dingtalk.com"
 
 	// defaultDiscoveryTimeout bounds the time spent on live registry discovery.
-	defaultDiscoveryTimeout = 10 * time.Second
+	// Tightened to 4s so a slow/unreachable discovery endpoint cannot block
+	// every CLI command invocation. See issue #119.
+	defaultDiscoveryTimeout = 4 * time.Second
 )
 
 type CatalogLoader interface {
