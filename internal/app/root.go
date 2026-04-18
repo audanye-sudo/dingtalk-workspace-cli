@@ -1110,33 +1110,15 @@ func loadPlugins(engine *pipeline.Engine, runner executor.Runner) []*cobra.Comma
 		}
 	}
 
-	// Discover tools from HTTP servers in parallel when there are multiple
-	// servers with auth headers (third-party services with higher latency).
-	if len(httpServers) > 1 {
-		type discoveryResult struct {
-			commands []*cobra.Command
-		}
-		results := make([]discoveryResult, len(httpServers))
-		var wg sync.WaitGroup
-		for i, ps := range httpServers {
-			wg.Add(1)
-			go func(idx int, ps pluginServer) {
-				defer wg.Done()
-				results[idx].commands = registerHTTPServer(ps.plugin, ps.srv, tc, runner)
-			}(i, ps)
-		}
-		wg.Wait()
-		for _, r := range results {
-			pluginCmds = append(pluginCmds, r.commands...)
-		}
-	} else {
-		for _, ps := range httpServers {
-			cmds := registerHTTPServer(ps.plugin, ps.srv, tc, runner)
-			pluginCmds = append(pluginCmds, cmds...)
-		}
+	// Collect all stdio clients up front so HTTP + stdio discovery can run
+	// concurrently — the slowest plugin (typically an unreachable HTTP
+	// endpoint hitting its dial timeout) dominates the parallel wall-clock,
+	// not the sum of every plugin's cold timeout.
+	type stdioEntry struct {
+		plugin *plugin.Plugin
+		sc     plugin.StdioServerClient
 	}
-
-	// 4. Start stdio MCP servers, discover tools, and build CLI commands
+	var stdioEntries []stdioEntry
 	for _, p := range allPlugins {
 		for _, sc := range p.StdioClients(userCtx) {
 			// Use background context so the subprocess lives for the CLI
@@ -1146,9 +1128,36 @@ func loadPlugins(engine *pipeline.Engine, runner executor.Runner) []*cobra.Comma
 					"plugin", p.Manifest.Name, "server", sc.Key, "error", err)
 				continue
 			}
-			cmds := registerStdioServer(p, sc, runner)
-			pluginCmds = append(pluginCmds, cmds...)
+			stdioEntries = append(stdioEntries, stdioEntry{plugin: p, sc: sc})
 		}
+	}
+
+	// Fan out HTTP and stdio discovery in parallel. Each goroutine resolves
+	// its cache hit locally (no network) or runs a bounded cold-path probe.
+	// Wall-clock cost ≈ max(individual plugin latencies), not the sum.
+	httpResults := make([][]*cobra.Command, len(httpServers))
+	stdioResults := make([][]*cobra.Command, len(stdioEntries))
+	var wg sync.WaitGroup
+	for i, ps := range httpServers {
+		wg.Add(1)
+		go func(idx int, ps pluginServer) {
+			defer wg.Done()
+			httpResults[idx] = registerHTTPServer(ps.plugin, ps.srv, tc, runner)
+		}(i, ps)
+	}
+	for i, e := range stdioEntries {
+		wg.Add(1)
+		go func(idx int, e stdioEntry) {
+			defer wg.Done()
+			stdioResults[idx] = registerStdioServer(e.plugin, e.sc, runner)
+		}(i, e)
+	}
+	wg.Wait()
+	for _, cmds := range httpResults {
+		pluginCmds = append(pluginCmds, cmds...)
+	}
+	for _, cmds := range stdioResults {
+		pluginCmds = append(pluginCmds, cmds...)
 	}
 
 	// 5. Register plugin hooks into pipeline engine
@@ -1233,13 +1242,18 @@ func registerHTTPServer(p *plugin.Plugin, srv market.ServerDescriptor, tc *trans
 // for an HTTP MCP server and returns the discovered tools. Returns nil on
 // any transport/protocol error; errors are logged at Debug level.
 func discoverHTTPTools(p *plugin.Plugin, srv market.ServerDescriptor, tc *transport.Client) []transport.ToolDescriptor {
-	// Bounded startup window. Combined with DialContext.Timeout=3s plus
-	// Initialize's short-circuit on transport errors, 4s accommodates a
-	// healthy third-party endpoint while surrendering quickly on broken
-	// ones. See issue #119.
-	timeout := 2 * time.Second
+	// Cold-path budget. An unreachable endpoint will burn the full window
+	// via the TCP dial timeout; a healthy localhost/third-party endpoint
+	// typically responds in <200 ms. Third-party servers with auth get a
+	// slightly larger window to accommodate TLS + auth RTT. The outcome is
+	// persisted as a negative cache so subsequent startups (80 ms warm) are
+	// unaffected. See issue #119.
+	timeout := 500 * time.Millisecond
 	if len(srv.AuthHeaders) > 0 {
-		timeout = 4 * time.Second
+		// Third-party servers with auth may include a TLS + token RTT in
+		// their first response. 700 ms accommodates that while still
+		// surrendering quickly on unreachable hosts.
+		timeout = 700 * time.Millisecond
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -1409,8 +1423,11 @@ func registerStdioServer(p *plugin.Plugin, sc plugin.StdioServerClient, runner e
 
 // discoverStdioTools performs the blocking Initialize + ListTools handshake
 // on a stdio MCP subprocess. Returns nil on any error (logged at Warn level).
+// The local subprocess-exec + handshake completes well under 1 s on any
+// healthy plugin; tighter than the HTTP budget because there is no network
+// dial to amortise.
 func discoverStdioTools(p *plugin.Plugin, sc plugin.StdioServerClient) []transport.ToolDescriptor {
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
 	if _, err := sc.Client.Initialize(ctx); err != nil {
